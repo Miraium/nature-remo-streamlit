@@ -1,2 +1,3 @@
 access_token: your_nature_remo_access_token_here
 database_file: nature_remo_e_log.db
+request_interval: 15
