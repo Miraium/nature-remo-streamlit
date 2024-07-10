@@ -4,17 +4,10 @@ from datetime import datetime
 import time
 import yaml
 
-# 設定ファイルを読み込む
-with open('config.yaml', 'r') as file:
-    config = yaml.safe_load(file)
-
-ACCESS_TOKEN = config['access_token']
-DB_FILE = config['database_file']
-
-def get_energy_usage():
+def get_energy_usage(access_token):
     url = 'https://api.nature.global/1/appliances'
     headers = {
-        'Authorization': f'Bearer {ACCESS_TOKEN}'
+        'Authorization': f'Bearer {access_token}'
     }
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
@@ -29,14 +22,14 @@ def get_energy_usage():
         print(f"Error: {response.status_code}")
         return None
 
-def save_energy_usage():
-    conn = sqlite3.connect(DB_FILE)
+def save_energy_usage(db_file, access_token):
+    conn = sqlite3.connect(db_file)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS energy_usage (time TEXT, value REAL)''')
     conn.commit()
     
     while True:
-        energy_usage = get_energy_usage()
+        energy_usage = get_energy_usage(access_token)
         if energy_usage is not None:
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             c.execute("INSERT INTO energy_usage (time, value) VALUES (?, ?)", (current_time, energy_usage))
@@ -44,6 +37,16 @@ def save_energy_usage():
         time.sleep(10)
     
     conn.close()
+
+def main():
+    # 設定ファイルを読み込む
+    with open('config.yaml', 'r') as file:
+        config = yaml.safe_load(file)
+
+    access_token = config['access_token']
+    db_file = config['database_file']
+
+    save_energy_usage(db_file, access_token)
 
 if __name__ == "__main__":
     save_energy_usage()
