@@ -2,13 +2,20 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import time
+from datetime import datetime, timedelta
 import yaml
 
 # データを読み込む関数
-def load_data(db_file):
+def load_data(db_file, hours):
     try:
         conn = sqlite3.connect(db_file)
-        data = pd.read_sql_query("SELECT * FROM energy_usage", conn)
+        end_time = datetime.now()
+        start_time = end_time - timedelta(hours=hours)
+        query = f"""
+            SELECT * FROM energy_usage 
+            WHERE time BETWEEN '{start_time.strftime('%Y-%m-%d %H:%M:%S')}' AND '{end_time.strftime('%Y-%m-%d %H:%M:%S')}'
+        """
+        data = pd.read_sql_query(query, conn)
         conn.close()
         data['time'] = pd.to_datetime(data['time'])
         return data
@@ -35,6 +42,8 @@ def main():
     # サイドバーの設定
     st.sidebar.header("Settings")
     update_interval = st.sidebar.slider("Data Update Interval (seconds)", 1, 60, 10)
+    max_hours = st.sidebar.slider("Max Data Period (hours)", 1, 72, 24)
+
     # メトリック表示用のプレースホルダー
     latest_metric = st.sidebar.empty()
     max_metric = st.sidebar.empty()
@@ -42,7 +51,7 @@ def main():
     avg_metric = st.sidebar.empty()
 
     # 初期データ読み込み
-    data = load_data(db_file)
+    data = load_data(db_file, max_hours)
 
     placeholder = st.empty()
     with placeholder.container():
@@ -50,7 +59,7 @@ def main():
 
     while True:
         # データを読み込む
-        data = load_data(db_file)
+        data = load_data(db_file, max_hours)
         if not data.empty:
             # 最新の電力使用量
             latest_value = data.iloc[-1]['value']
