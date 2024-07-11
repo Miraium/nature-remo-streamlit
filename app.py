@@ -17,8 +17,10 @@ def load_data(db_file):
         return pd.DataFrame(columns=["time", "value"])
 
 # グラフ描画関数
-def plot_graph(data):
-    st.line_chart(data.set_index('time'))
+def plot_graph(data, threshold):
+    data = data.set_index('time')
+    data['Threshold'] = threshold
+    st.line_chart(data[['value', 'Threshold']])
 
 # メインループ
 def main():
@@ -27,6 +29,7 @@ def main():
         config = yaml.safe_load(file)
 
     db_file = config['database_file']
+    threshold = config['threshold']
 
     st.title("Real-time Energy Usage Monitoring")
     # サイドバーの設定
@@ -43,7 +46,7 @@ def main():
 
     placeholder = st.empty()
     with placeholder.container():
-        plot_graph(data)
+        plot_graph(data, threshold)
 
     while True:
         # データを読み込む
@@ -63,7 +66,7 @@ def main():
 
             # グラフを更新
             with placeholder.container():
-                plot_graph(data)
+                plot_graph(data, threshold)
         # 更新間隔
         time.sleep(update_interval)
 

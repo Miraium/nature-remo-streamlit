@@ -1,3 +1,8 @@
+# Nature Remo API access token
 access_token: your_nature_remo_access_token_here
+# Path to the database file
 database_file: nature_remo_e_log.db
+# Request interval in seconds
 request_interval: 15
+# Threshold value in Wh
+threshold: 3000
