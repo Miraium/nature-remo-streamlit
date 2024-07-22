@@ -20,3 +20,6 @@ notify_enabled: true
 
 # Notification message
 notify_message: "Energy usage exceeded the threshold"
+
+# Notification interval in seconds (default: 180 seconds)
+notify_interval: 180

@@ -61,6 +61,9 @@ This project monitors real-time energy usage using the Nature Remo API and sends
 
     # Notification message
     notify_message: "Energy usage exceeded the threshold"
+
+    # Notification interval in seconds (default: 180 seconds)
+    notify_interval: 180
     ```
 
 ## Usage
