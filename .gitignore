@@ -1,2 +1,5 @@
+*.pyc
+
 config.yaml
 nature_remo_e_log.db
+energy_usage.png

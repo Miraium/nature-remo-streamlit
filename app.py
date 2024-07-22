@@ -9,11 +9,11 @@ import yaml
 def load_data(db_file, hours):
     try:
         conn = sqlite3.connect(db_file)
-        end_time = datetime.now()
-        start_time = end_time - timedelta(hours=hours)
+        end_time = datetime.now().isoformat()
+        start_time = (datetime.now() - timedelta(hours=hours)).isoformat()
         query = f"""
             SELECT * FROM energy_usage 
-            WHERE time BETWEEN '{start_time.strftime('%Y-%m-%d %H:%M:%S')}' AND '{end_time.strftime('%Y-%m-%d %H:%M:%S')}'
+            WHERE time BETWEEN '{start_time}' AND '{end_time}'
         """
         data = pd.read_sql_query(query, conn)
         conn.close()
@@ -26,7 +26,7 @@ def load_data(db_file, hours):
 # グラフ描画関数
 def plot_graph(data, threshold):
     data = data.set_index('time')
-    data['Threshold'] = threshold
+    data['Threshold'] = threshold  # しきい値をそのまま使用
     st.line_chart(data[['value', 'Threshold']])
 
 # メインループ
@@ -36,9 +36,10 @@ def main():
         config = yaml.safe_load(file)
 
     db_file = config['database_file']
-    threshold = config['threshold']
+    threshold = config['threshold']  # しきい値を設定ファイルから読み取る
 
     st.title("Real-time Energy Usage Monitoring")
+    
     # サイドバーの設定
     st.sidebar.header("Settings")
     update_interval = st.sidebar.slider("Data Update Interval (seconds)", 1, 60, 10)
@@ -63,15 +64,15 @@ def main():
         if not data.empty:
             # 最新の電力使用量
             latest_value = data.iloc[-1]['value']
-            latest_metric.metric(label="Latest Energy Usage", value=f"{latest_value} W")
+            latest_metric.metric(label="Latest Energy Usage", value=f"{latest_value:.2f} Wh")
 
             # 最大・最小・平均電力使用量
             max_value = data['value'].max()
             min_value = data['value'].min()
             avg_value = data['value'].mean()
-            max_metric.metric(label="Max Energy Usage", value=f"{max_value} W")
-            min_metric.metric(label="Min Energy Usage", value=f"{min_value} W")
-            avg_metric.metric(label="Avg Energy Usage", value=f"{avg_value:.2f} W")
+            max_metric.metric(label="Max Energy Usage", value=f"{max_value:.2f} Wh")
+            min_metric.metric(label="Min Energy Usage", value=f"{min_value:.2f} Wh")
+            avg_metric.metric(label="Avg Energy Usage", value=f"{avg_value:.2f} Wh")
 
             # グラフを更新
             with placeholder.container():
