@@ -9,19 +9,21 @@ import yaml
 def load_data(db_file, hours):
     try:
         conn = sqlite3.connect(db_file)
-        end_time = datetime.now().isoformat()
-        start_time = (datetime.now() - timedelta(hours=hours)).isoformat()
-        query = f"""
+        end_time = datetime.now()
+        start_time = end_time - timedelta(hours=hours)
+        query = """
             SELECT * FROM energy_usage 
-            WHERE time BETWEEN '{start_time}' AND '{end_time}'
+            WHERE time BETWEEN ? AND ?
         """
-        data = pd.read_sql_query(query, conn)
+        # パラメータを使用してクエリを実行
+        data = pd.read_sql_query(query, conn, params=(start_time.strftime('%Y-%m-%d %H:%M:%S'), end_time.strftime('%Y-%m-%d %H:%M:%S')))
         conn.close()
         data['time'] = pd.to_datetime(data['time'])
         return data
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return pd.DataFrame(columns=["time", "value"])
+
 
 # グラフ描画関数
 def plot_graph(data, threshold):
