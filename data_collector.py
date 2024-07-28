@@ -25,13 +25,14 @@ def get_energy_usage(access_token):
         print(f"Error: {response.status_code}")
         return None
 
-def save_energy_usage(db_file, access_token, interval, threshold, line_token, notify_enabled, notify_message, notify_interval):
+def save_energy_usage(db_file, access_token, interval, threshold, line_token, notify_enabled, notify_message, notify_message_below_threshold, notify_interval):
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS energy_usage (time TEXT, value REAL)''')
     conn.commit()
 
     last_notification_time = datetime.min
+    last_notification_value = None
 
     try:
         while True:
@@ -43,7 +44,7 @@ def save_energy_usage(db_file, access_token, interval, threshold, line_token, no
 
                 # しきい値を超えた場合の処理
                 current_time_dt = datetime.now()
-                if energy_usage > threshold and notify_enabled and (current_time_dt - last_notification_time >= timedelta(seconds=notify_interval)):
+                if energy_usage > threshold and notify_enabled and last_notification_value is None and current_time_dt - last_notification_time >= timedelta(seconds=notify_interval):
                     print("Line Notification")
                     # グラフを生成してLINEに送信
                     data = pd.read_sql_query("SELECT * FROM energy_usage ORDER BY time DESC LIMIT 100", conn)
@@ -51,7 +52,18 @@ def save_energy_usage(db_file, access_token, interval, threshold, line_token, no
                     create_usage_graph(data, threshold, image_path)
                     notify_line(line_token, notify_message, image_path)
                     last_notification_time = current_time_dt
-                    
+                    last_notification_value = energy_usage
+
+                if energy_usage < threshold and notify_enabled and last_notification_value is not None:
+                    print("Line Notification (Value below threshold)")
+                    # グラフを生成してLINEに送信
+                    data = pd.read_sql_query("SELECT * FROM energy_usage ORDER BY time DESC LIMIT 100", conn)
+                    image_path = 'energy_usage.png'
+                    create_usage_graph(data, threshold, image_path)
+                    notify_line(line_token, notify_message_below_threshold, image_path)
+                    last_notification_time = current_time_dt
+                    last_notification_value = None
+
             time.sleep(interval)
     except KeyboardInterrupt:
         print("Stopping...")
@@ -71,9 +83,10 @@ def main():
     line_token = config['line_token']
     notify_enabled = config.get('notify_enabled', True)
     notify_message = config.get('notify_message', 'Energy usage exceeded the threshold')
+    notify_message_below_threshold = config.get('notify_message', 'Energy usage exceeded the threshold')
     notify_interval = config.get('notify_interval', 180)
 
-    save_energy_usage(db_file, access_token, interval, threshold, line_token, notify_enabled, notify_message, notify_interval)
+    save_energy_usage(db_file, access_token, interval, threshold, line_token, notify_enabled, notify_message, notify_message_below_threshold, notify_interval)
 
 if __name__ == "__main__":
     main()
