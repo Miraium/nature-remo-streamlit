@@ -83,7 +83,7 @@ def main():
     line_token = config['line_token']
     notify_enabled = config.get('notify_enabled', True)
     notify_message = config.get('notify_message', 'Energy usage exceeded the threshold')
-    notify_message_below_threshold = config.get('notify_message', 'Energy usage exceeded the threshold')
+    notify_message_below_threshold = config.get('notify_message_below_threshold', 'Energy usage is below the threshold')
     notify_interval = config.get('notify_interval', 180)
 
     save_energy_usage(db_file, access_token, interval, threshold, line_token, notify_enabled, notify_message, notify_message_below_threshold, notify_interval)
