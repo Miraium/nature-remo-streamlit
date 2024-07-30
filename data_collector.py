@@ -67,6 +67,8 @@ def save_energy_usage(db_file, access_token, interval, threshold, line_token, no
             time.sleep(interval)
     except KeyboardInterrupt:
         print("Stopping...")
+    except Exception as e:
+        print(f"An error occurred: {e}")
     finally:
         conn.close()
         sys.exit(0)
