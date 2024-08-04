@@ -1,4 +1,5 @@
 import requests
+from requests.exceptions import RequestException
 import sqlite3
 from datetime import datetime, timedelta
 import time
@@ -8,12 +9,13 @@ from line_notifier import notify_line, create_usage_graph
 import pandas as pd
 
 def get_energy_usage(access_token):
-    url = 'https://api.nature.global/1/appliances'
-    headers = {
-        'Authorization': f'Bearer {access_token}'
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
+    try:
+        url = 'https://api.nature.global/1/appliances'
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
         appliances = response.json()
         for appliance in appliances:
             if 'smart_meter' in appliance and 'echonetlite_properties' in appliance['smart_meter']:
@@ -21,9 +23,10 @@ def get_energy_usage(access_token):
                     if property['name'] == 'measured_instantaneous':
                         print(property)
                         return int(property['val'])
-    else:
-        print(f"Error: {response.status_code}")
+    except RequestException as e:
+        print(f"接続エラー: {e}")
         return None
+    return None
 
 def save_energy_usage(db_file, access_token, interval, threshold, line_token, notify_enabled, notify_message, notify_message_below_threshold, notify_interval):
     conn = sqlite3.connect(db_file)
@@ -34,41 +37,53 @@ def save_energy_usage(db_file, access_token, interval, threshold, line_token, no
     last_notification_time = datetime.min
     last_notification_value = None
 
+    max_retries = 10
+    retry_delay = 30
+
     try:
         while True:
-            energy_usage = get_energy_usage(access_token)
-            if energy_usage is not None:
-                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                c.execute("INSERT INTO energy_usage (time, value) VALUES (?, ?)", (current_time, energy_usage))
-                conn.commit()
+            for attempt in range(max_retries):
+                energy_usage = get_energy_usage(access_token)
+                if energy_usage is not None:
+                    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    c.execute("INSERT INTO energy_usage (time, value) VALUES (?, ?)", (current_time, energy_usage))
+                    conn.commit()
 
-                # しきい値を超えた場合の処理
-                current_time_dt = datetime.now()
-                if energy_usage > threshold and notify_enabled and last_notification_value is None and current_time_dt - last_notification_time >= timedelta(seconds=notify_interval):
-                    print("Line Notification")
-                    # グラフを生成してLINEに送信
-                    data = pd.read_sql_query("SELECT * FROM energy_usage ORDER BY time DESC LIMIT 100", conn)
-                    image_path = 'energy_usage.png'
-                    create_usage_graph(data, threshold, image_path)
-                    notify_line(line_token, notify_message, image_path)
-                    last_notification_time = current_time_dt
-                    last_notification_value = energy_usage
+                    # しきい値を超えた場合の処理
+                    current_time_dt = datetime.now()
+                    if energy_usage > threshold and notify_enabled and last_notification_value is None and current_time_dt - last_notification_time >= timedelta(seconds=notify_interval):
+                        print("Line Notification")
+                        # グラフを生成してLINEに送信
+                        data = pd.read_sql_query("SELECT * FROM energy_usage ORDER BY time DESC LIMIT 100", conn)
+                        image_path = 'energy_usage.png'
+                        create_usage_graph(data, threshold, image_path)
+                        notify_line(line_token, notify_message, image_path)
+                        last_notification_time = current_time_dt
+                        last_notification_value = energy_usage
 
-                if energy_usage < threshold and notify_enabled and last_notification_value is not None:
-                    print("Line Notification (Value below threshold)")
-                    # グラフを生成してLINEに送信
-                    data = pd.read_sql_query("SELECT * FROM energy_usage ORDER BY time DESC LIMIT 100", conn)
-                    image_path = 'energy_usage.png'
-                    create_usage_graph(data, threshold, image_path)
-                    notify_line(line_token, notify_message_below_threshold, image_path)
-                    last_notification_time = current_time_dt
-                    last_notification_value = None
+                    if energy_usage < threshold and notify_enabled and last_notification_value is not None:
+                        print("Line Notification (Value below threshold)")
+                        # グラフを生成してLINEに送信
+                        data = pd.read_sql_query("SELECT * FROM energy_usage ORDER BY time DESC LIMIT 100", conn)
+                        image_path = 'energy_usage.png'
+                        create_usage_graph(data, threshold, image_path)
+                        notify_line(line_token, notify_message_below_threshold, image_path)
+                        last_notification_time = current_time_dt
+                        last_notification_value = None
+
+                    break  # 成功したらループを抜ける
+                else:
+                    if attempt < max_retries - 1:
+                        print(f"データ取得に失敗しました。{retry_delay}秒後に再試行します（試行 {attempt + 1}/{max_retries}）")
+                        time.sleep(retry_delay)
+                    else:
+                        print("最大再試行回数に達しました。次の間隔まで待機します。")
 
             time.sleep(interval)
     except KeyboardInterrupt:
-        print("Stopping...")
+        print("停止中...")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"エラーが発生しました: {e}")
     finally:
         conn.close()
         sys.exit(0)
