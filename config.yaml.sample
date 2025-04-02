@@ -1,10 +1,10 @@
 # This is a sample configuration file for the application.
 
 # Nature Remo API access token
-access_token: your_nature_remo_access_token_here
+access_token: "YOUR_NATURE_REMO_ACCESS_TOKEN"
 
 # Path to the database file
-database_file: nature_remo_e_log.db
+database_file: "nature_remo_e_log.db"
 
 # Request interval in seconds
 request_interval: 15
@@ -12,15 +12,32 @@ request_interval: 15
 # Threshold value in Wh
 threshold: 3000
 
-# LINE Notify access token
-line_token: your_line_notify_access_token_here
+# Notification settings
+notifications:
+  platforms:  # Specify multiple platforms for notifications
+    - line
+    - slack
+    - discord
 
-# Enable or disable LINE notifications
-notify_enabled: true
+  line:
+    enabled: true
+    token: "YOUR_LINE_NOTIFY_TOKEN"
+    message: "Energy usage has exceeded the threshold. Please be cautious of overuse."
+    message_below_threshold: "Energy usage is now below the threshold. Keep saving energy!"
 
-# Notification message
-notify_message: "Energy usage exceeded the threshold"
-notify_message_below_threshold: "Energy usage is below the threshold"
+  slack:
+    enabled: true
+    webhook_url: "YOUR_SLACK_WEBHOOK_URL"
+    bot_token: "YOUR_SLACK_BOT_TOKEN"
+    channel: "YOUR_SLACK_CHANNEL_ID"
+    message: "Energy usage has exceeded the threshold. Please be cautious of overuse."
+    message_below_threshold: "Energy usage is now below the threshold. Keep saving energy!"
+
+  discord:
+    enabled: true
+    webhook_url: "YOUR_DISCORD_WEBHOOK_URL"
+    message: "Energy usage has exceeded the threshold. Please be cautious of overuse."
+    message_below_threshold: "Energy usage is now below the threshold. Keep saving energy!"
 
 # Notification interval in seconds (default: 180 seconds)
 notify_interval: 180

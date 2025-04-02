@@ -5,7 +5,9 @@ from datetime import datetime, timedelta
 import time
 import yaml
 import sys
-from line_notifier import notify_line, create_usage_graph
+from line_notifier import notify_line_bot, create_usage_graph
+from discord_notifier import notify_discord
+from slack_notifier import notify_slack
 import pandas as pd
 
 def get_energy_usage(access_token):
@@ -28,7 +30,28 @@ def get_energy_usage(access_token):
         return None
     return None
 
-def save_energy_usage(db_file, access_token, interval, threshold, line_token, notify_enabled, notify_message, notify_message_below_threshold, notify_interval):
+def send_notifications(config, message, image_path=None):
+    platforms = config["notifications"]["platforms"]
+
+    if "line" in platforms and config["notifications"]["line"]["enabled"]:
+        line_config = config["notifications"]["line"]
+        notify_line_bot(line_config["token"], message, image_path)
+
+    if "slack" in platforms and config["notifications"]["slack"]["enabled"]:
+        slack_config = config["notifications"]["slack"]
+        notify_slack(
+            slack_config["webhook_url"],
+            message,
+            image_path,
+            slack_config["bot_token"],
+            slack_config["channel"]
+        )
+
+    if "discord" in platforms and config["notifications"]["discord"]["enabled"]:
+        discord_config = config["notifications"]["discord"]
+        notify_discord(discord_config["webhook_url"], message, image_path)
+
+def save_energy_usage(db_file, access_token, interval, threshold, config):
     conn = sqlite3.connect(db_file)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS energy_usage (time TEXT, value REAL)''')
@@ -40,6 +63,11 @@ def save_energy_usage(db_file, access_token, interval, threshold, line_token, no
     max_retries = 10
     retry_delay = 30
 
+    notify_enabled = config.get('notifications', {}).get('enabled', True)
+    notify_message = config.get('notifications', {}).get('message', 'Energy usage exceeded the threshold')
+    notify_message_below_threshold = config.get('notifications', {}).get('message_below_threshold', 'Energy usage is below the threshold')
+    notify_interval = config.get('notify_interval', 180)
+
     try:
         while True:
             for attempt in range(max_retries):
@@ -49,29 +77,27 @@ def save_energy_usage(db_file, access_token, interval, threshold, line_token, no
                     c.execute("INSERT INTO energy_usage (time, value) VALUES (?, ?)", (current_time, energy_usage))
                     conn.commit()
 
-                    # しきい値を超えた場合の処理
                     current_time_dt = datetime.now()
+
                     if energy_usage > threshold and notify_enabled and last_notification_value is None and current_time_dt - last_notification_time >= timedelta(seconds=notify_interval):
-                        print("Line Notification")
-                        # グラフを生成してLINEに送信
+                        print("通知送信中...")
                         data = pd.read_sql_query("SELECT * FROM energy_usage ORDER BY time DESC LIMIT 100", conn)
                         image_path = 'energy_usage.png'
                         create_usage_graph(data, threshold, image_path)
-                        notify_line(line_token, notify_message, image_path)
+                        send_notifications(config, notify_message, image_path)
                         last_notification_time = current_time_dt
                         last_notification_value = energy_usage
 
                     if energy_usage < threshold and notify_enabled and last_notification_value is not None:
-                        print("Line Notification (Value below threshold)")
-                        # グラフを生成してLINEに送信
+                        print("通知送信中 (閾値以下)...")
                         data = pd.read_sql_query("SELECT * FROM energy_usage ORDER BY time DESC LIMIT 100", conn)
                         image_path = 'energy_usage.png'
                         create_usage_graph(data, threshold, image_path)
-                        notify_line(line_token, notify_message_below_threshold, image_path)
+                        send_notifications(config, notify_message_below_threshold, image_path)
                         last_notification_time = current_time_dt
                         last_notification_value = None
 
-                    break  # 成功したらループを抜ける
+                    break
                 else:
                     if attempt < max_retries - 1:
                         print(f"データ取得に失敗しました。{retry_delay}秒後に再試行します（試行 {attempt + 1}/{max_retries}）")
@@ -97,13 +123,10 @@ def main():
     db_file = config['database_file']
     interval = config.get('request_interval', 15)
     threshold = config.get('threshold', 3000)
-    line_token = config['line_token']
-    notify_enabled = config.get('notify_enabled', True)
-    notify_message = config.get('notify_message', 'Energy usage exceeded the threshold')
-    notify_message_below_threshold = config.get('notify_message_below_threshold', 'Energy usage is below the threshold')
-    notify_interval = config.get('notify_interval', 180)
 
-    save_energy_usage(db_file, access_token, interval, threshold, line_token, notify_enabled, notify_message, notify_message_below_threshold, notify_interval)
+    save_energy_usage(
+        db_file, access_token, interval, threshold, config
+    )
 
 if __name__ == "__main__":
     main()
