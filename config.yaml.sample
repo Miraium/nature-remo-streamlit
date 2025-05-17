@@ -21,7 +21,8 @@ notifications:
 
   line:
     enabled: true
-    token: "YOUR_LINE_NOTIFY_TOKEN"
+    channel_access_token: "YOUR_LINE_CHANNEL_ACCESS_TOKEN"
+    user_id: "YOUR_LINE_USER_ID"
     message: "Energy usage has exceeded the threshold. Please be cautious of overuse."
     message_below_threshold: "Energy usage is now below the threshold. Keep saving energy!"
 
