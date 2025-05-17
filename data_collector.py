@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import time
 import yaml
 import sys
-from line_notifier import notify_line_bot, create_usage_graph
+from line_notifier import create_usage_graph, notify_line_messaging_api
 from discord_notifier import notify_discord
 from slack_notifier import notify_slack
 import pandas as pd
@@ -35,7 +35,12 @@ def send_notifications(config, message, image_path=None):
 
     if "line" in platforms and config["notifications"]["line"]["enabled"]:
         line_config = config["notifications"]["line"]
-        notify_line_bot(line_config["token"], message, image_path)
+        notify_line_messaging_api(
+            line_config["channel_access_token"],
+            line_config["user_id"],
+            message,
+            image_path
+        )
 
     if "slack" in platforms and config["notifications"]["slack"]["enabled"]:
         slack_config = config["notifications"]["slack"]
