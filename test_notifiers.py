@@ -1,5 +1,5 @@
 import yaml
-from line_notifier import notify_line_bot
+from line_notifier import notify_line_messaging_api
 from discord_notifier import notify_discord
 from slack_notifier import notify_slack
 
@@ -9,18 +9,23 @@ def load_config():
 
 def test_line_notification(config):
     line_config = config["notifications"]["line"]
-    message = "LINE通知テストメッセージ"
-    image_path = None  # 必要に応じて画像パスを設定
+    message = "LINE Messaging API Test Message"
+    image_path = "energy_usage.png"  # 必要に応じて画像パスを設定
     try:
-        notify_line_bot(line_config["token"], message, image_path)
-        print("LINE通知テスト成功")
+        notify_line_messaging_api(
+            line_config["channel_access_token"],
+            line_config["user_id"],
+            message,
+            image_path
+        )
+        print("LINE Messaging API通知テスト成功")
     except Exception as e:
-        print(f"LINE通知テスト失敗: {e}")
+        print(f"LINE Messaging API通知テスト失敗: {e}")
 
 def test_discord_notification(config):
     discord_config = config["notifications"]["discord"]
-    message = "Discord通知テストメッセージ"
-    image_path = None  # 必要に応じて画像パスを設定
+    message = "Discord Test Message"
+    image_path = "energy_usage.png"  # 必要に応じて画像パスを設定
     try:
         notify_discord(discord_config["webhook_url"], message, image_path)
         print("Discord通知テスト成功")
@@ -29,7 +34,7 @@ def test_discord_notification(config):
 
 def test_slack_notification(config):
     slack_config = config["notifications"]["slack"]
-    message = "Slack通知テストメッセージ"
+    message = "Slack Test Message"
     image_path = "energy_usage.png"
     try:
         notify_slack(
@@ -48,12 +53,12 @@ if __name__ == "__main__":
     platforms = config["notifications"]["platforms"]
 
     if "line" in platforms and config["notifications"]["line"]["enabled"]:
-        print("LINE通知テストを実行中...")
-        # test_line_notification(config)
+        print("LINE Messaging API通知テストを実行中...")
+        test_line_notification(config)
 
     if "discord" in platforms and config["notifications"]["discord"]["enabled"]:
         print("Discord通知テストを実行中...")
-        # test_discord_notification(config)
+        test_discord_notification(config)
 
     if "slack" in platforms and config["notifications"]["slack"]["enabled"]:
         print("Slack通知テストを実行中...")
